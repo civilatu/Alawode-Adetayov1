@@ -88,7 +88,7 @@ body {
 /* Hero Section */
 .hero {
     min-height: 100vh;
-    background: linear-gradient(rgba(26, 35, 126, 0.8), rgba(26, 35, 126, 0.8)), url('https://via.placeholder.com/1200x800/1a237e/white?text=Hero+Background');
+    background: linear-gradient(135deg, #0d1225 0%, #1a237e 60%, #152031 100%);
     background-size: cover;
     background-position: center;
     display: flex;
@@ -420,8 +420,24 @@ section {
 
 /* Responsive */
 @media (max-width: 768px) {
+    .nav-toggle {
+        display: block !important;
+    }
+
     .nav-links {
         display: none;
+        flex-direction: column;
+        width: 100%;
+        padding: 1rem 0;
+        gap: 0.75rem;
+    }
+
+    .nav-links.open {
+        display: flex;
+    }
+
+    .navbar .container {
+        flex-wrap: wrap;
     }
     
     .hero-text h1 {

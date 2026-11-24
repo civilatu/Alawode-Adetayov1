@@ -2,537 +2,537 @@
 // Handles all administrator functions and interactions
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize all functionality
-    
+    const toastEl = document.getElementById('admin-toast');
+    let toastTimer;
+
+    const showToast = (message, isError = false) => {
+        if (!toastEl) return;
+        toastEl.textContent = message;
+        toastEl.style.borderLeftColor = isError ? '#f44336' : '#ffd700';
+        toastEl.style.display = 'block';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toastEl.style.display = 'none';
+        }, 3200);
+    };
+
     // 1. Sidebar Toggle
     const sidebar = document.querySelector('.admin-sidebar');
     const topBar = document.querySelector('.top-bar');
     const content = document.querySelector('.admin-content');
     const sidebarToggle = document.querySelector('.sidebar-toggle');
-    
-    if (sidebarToggle) {
+
+    if (sidebarToggle && sidebar && topBar && content) {
         sidebarToggle.addEventListener('click', () => {
             sidebar.classList.toggle('open');
             topBar.classList.toggle('collapsed');
             content.classList.toggle('collapsed');
         });
     }
-    
+
     // 2. Navigation Activation
     const navLinks = document.querySelectorAll('.sidebar-nav a');
     const sections = document.querySelectorAll('.section');
-    
+
+    const activateSection = (sectionId) => {
+        const targetSection = document.getElementById(sectionId);
+        if (!targetSection) return;
+
+        navLinks.forEach(l => {
+            l.classList.toggle('active', l.getAttribute('data-section') === sectionId);
+        });
+        sections.forEach(section => {
+            section.classList.toggle('active', section.getAttribute('id') === sectionId);
+        });
+        sidebar?.classList.remove('open');
+    };
+
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            // Update active navigation
-            navLinks.forEach(l => l.classList.remove('active'));
-            link.classList.add('active');
-            
-            // Show corresponding section
             const sectionId = link.getAttribute('data-section');
-            sections.forEach(section => {
-                section.classList.remove('active');
-                if (section.getAttribute('id') === sectionId) {
-                    section.classList.add('active');
-                }
-            });
+            if (sectionId) {
+                history.replaceState(null, '', `#${sectionId}`);
+                activateSection(sectionId);
+            }
         });
     });
-    
-    // Default: activate dashboard
-    document.querySelector('.sidebar-nav a[data-section="dashboard"]').click();
-    
-    // 3. Profile Management
+
+    // Quick Action navigation buttons
+    document.querySelectorAll('.action-btn[data-target-section]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-target-section');
+            if (target) activateSection(target);
+        });
+    });
+
+    // Activate hash section or dashboard by default
+    const initialHash = window.location.hash.replace('#', '');
+    if (initialHash && document.getElementById(initialHash)) {
+        activateSection(initialHash);
+    } else {
+        activateSection('dashboard');
+    }
+
+    // 3. Profile & Biography Management (with localStorage sync to Phase 2)
     const profileForm = document.getElementById('profile-form');
-    const biographyTextarea = document.getElementById('biography');
+    const biographyForm = document.getElementById('biography-form');
+    const biographyTextarea = document.getElementById('biography-input');
+    const bioEditor = document.getElementById('bio-editor');
     const previewName = document.getElementById('preview-name');
     const previewHeadline = document.getElementById('preview-headline');
     const previewBio = document.getElementById('preview-bio');
     const fullNameInput = document.getElementById('full-name');
     const headlineInput = document.getElementById('headline');
-    
+    const emailInput = document.getElementById('email');
+
+    try {
+        const savedProfile = JSON.parse(localStorage.getItem('portfolio_profile') || 'null');
+        if (savedProfile) {
+            if (headlineInput && savedProfile.headline) headlineInput.value = savedProfile.headline;
+            if (emailInput && savedProfile.email) emailInput.value = savedProfile.email;
+            if (biographyTextarea && savedProfile.biography) biographyTextarea.value = savedProfile.biography;
+            if (bioEditor && savedProfile.biography) bioEditor.value = savedProfile.biography;
+            if (previewHeadline && savedProfile.headline) previewHeadline.textContent = savedProfile.headline;
+            if (previewBio && savedProfile.biography) previewBio.textContent = savedProfile.biography;
+        }
+    } catch {
+        // Ignore storage errors
+    }
+
     if (profileForm) {
         profileForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            
-            // Get form values
-            const name = fullNameInput.value;
-            const headline = headlineInput.value;
-            const biography = biographyTextarea.value;
-            
-            // Update preview
-            previewName.textContent = name;
-            previewHeadline.textContent = headline;
-            previewBio.textContent = biography;
-            
-            // Show success message
-            alert('Profile information updated successfully!');
+            const name = fullNameInput?.value.trim() || 'Alawode Adetayo';
+            const headline = headlineInput?.value.trim() || '';
+            const email = emailInput?.value.trim() || '';
+            const biography = biographyTextarea?.value.trim() || '';
+
+            if (previewName) previewName.textContent = name;
+            if (previewHeadline) previewHeadline.textContent = headline;
+            if (previewBio) previewBio.textContent = biography;
+            if (bioEditor) bioEditor.value = biography;
+
+            try {
+                localStorage.setItem('portfolio_profile', JSON.stringify({ name, headline, email, biography }));
+            } catch {
+                // Ignore storage errors
+            }
+
+            showToast('Profile information saved.');
         });
     }
-    
-    // 4. Education Management
-    const addEducationBtn = document.querySelector('.add-education button');
-    const educationContainer = document.querySelector('.education-management');
-    
-    if (addEducationBtn) {
-        let educationCount = 1;
-        
-        addEducationBtn.addEventListener('click', () => {
-            if (educationCount >= 5) {
-                alert('Maximum of 5 educational qualifications allowed.');
-                return;
+
+    if (biographyForm) {
+        biographyForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const biography = bioEditor?.value.trim() || '';
+            if (biographyTextarea) biographyTextarea.value = biography;
+            if (previewBio) previewBio.textContent = biography;
+
+            try {
+                const existing = JSON.parse(localStorage.getItem('portfolio_profile') || '{}');
+                localStorage.setItem('portfolio_profile', JSON.stringify({ ...existing, biography }));
+            } catch {
+                // Ignore storage errors
             }
-            
-            const educationEntry = document.createElement('div');
-            educationEntry.className = 'education-entry';
-            educationEntry.innerHTML = `
+
+            showToast('Biography saved.');
+        });
+    }
+
+    // Helper for list management sections
+    const setupAddRemove = ({
+        containerSelector,
+        addWrapperSelector,
+        itemSelector,
+        removeSelector,
+        maxCount,
+        countTextSelector,
+        countLabel,
+        createItemHtml
+    }) => {
+        const container = document.querySelector(containerSelector);
+        const addWrapper = container?.querySelector(addWrapperSelector);
+        const addBtn = addWrapper?.querySelector('button');
+        const countEl = countTextSelector ? document.querySelector(countTextSelector) : null;
+
+        const updateCount = () => {
+            if (!container || !countEl) return;
+            const current = container.querySelectorAll(itemSelector).length;
+            countEl.textContent = `Maximum of ${maxCount} ${countLabel} allowed. Currently: ${current} of ${maxCount}.`;
+        };
+
+        if (container && addWrapper && addBtn) {
+            addBtn.addEventListener('click', () => {
+                const current = container.querySelectorAll(itemSelector).length;
+                if (current >= maxCount) {
+                    showToast(`Maximum of ${maxCount} ${countLabel} allowed.`, true);
+                    return;
+                }
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = createItemHtml(current + 1).trim();
+                const node = wrapper.firstElementChild;
+                if (node) {
+                    container.insertBefore(node, addWrapper);
+                    updateCount();
+                }
+            });
+
+            container.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest(removeSelector);
+                if (removeBtn) {
+                    const entry = removeBtn.closest(itemSelector);
+                    if (entry) {
+                        entry.remove();
+                        updateCount();
+                    }
+                }
+            });
+        }
+
+        updateCount();
+    };
+
+    // 4. Education Management
+    setupAddRemove({
+        containerSelector: '.education-management',
+        addWrapperSelector: '.add-education',
+        itemSelector: '.education-entry',
+        removeSelector: '.education-remove',
+        maxCount: 5,
+        countTextSelector: '#education-count-text',
+        countLabel: 'qualifications',
+        createItemHtml: (idx) => `
+            <div class="education-entry">
                 <div>
-                    <h3>Qualification ${educationCount + 1}</h3>
-                    <p>Institution: <input type="text" class="edu-institution"></p>
+                    <h3>Qualification ${idx}</h3>
+                    <p>Institution: <input type="text" class="edu-institution" placeholder="Institution name"></p>
                     <p>Duration: <input type="text" class="edu-duration" placeholder="e.g., 4 years"></p>
                 </div>
-                <button class="education-remove">×</button>
-            `;
-            
-            educationContainer.insertBefore(educationEntry, addEducationBtn);
-            educationCount++;
-        });
-    }
-    
-    // Education entry removal
-    educationContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('education-remove')) {
-            e.target.parentElement.remove();
-        }
+                <button type="button" class="btn-remove education-remove">Remove</button>
+            </div>
+        `
     });
-    
+
     // 5. Certifications Management
-    const addCertBtn = document.querySelector('.add-certification button');
-    const certContainer = document.querySelector('.certifications-management');
-    let certCount = 1;
-    
-    if (addCertBtn && certContainer) {
-        addCertBtn.addEventListener('click', () => {
-            if (certCount >= 10) {
-                alert('Maximum of 10 certifications allowed.');
-                return;
-            }
-            
-            const certEntry = document.createElement('div');
-            certEntry.className = 'certification-entry';
-            certEntry.innerHTML = `
-                <div>
-                    <h3>Certification ${certCount + 1}</h3>
-                    <p>Awarding Institution: <input type="text" class="cert-institution"></p>
+    setupAddRemove({
+        containerSelector: '.certifications-management',
+        addWrapperSelector: '.add-certification',
+        itemSelector: '.certification-entry',
+        removeSelector: '.cert-delete',
+        maxCount: 10,
+        countTextSelector: '#cert-count-text',
+        countLabel: 'certifications',
+        createItemHtml: (idx) => `
+            <div class="certification-entry">
+                <div class="certification-info">
+                    <h3>Certification ${idx}</h3>
+                    <p>Awarding Institution: <input type="text" class="cert-institution" placeholder="Institution"></p>
                 </div>
-                <div>
-                    <button class="btn-edit cert-edit">Edit</button>
-                    <button class="btn-delete cert-delete">Delete</button>
+                <div class="certification-actions">
+                    <button type="button" class="btn-delete cert-delete">Delete</button>
                 </div>
-            `;
-            
-            certContainer.insertBefore(certEntry, addCertBtn);
-            certCount++;
-        });
-    }
-    
-    // Certification entry removal
-    certContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('cert-delete')) {
-            e.target.parentElement.parentElement.remove();
-        }
+            </div>
+        `
     });
-    
+
     // 6. Experience Management
-    const addExperienceBtn = document.querySelector('.add-experience button');
-    const expContainer = document.querySelector('.experience-management');
-    let expCount = 1;
-    
-    if (addExperienceBtn && expContainer) {
-        addExperienceBtn.addEventListener('click', () => {
-            if (expCount >= 20) {
-                alert('Maximum of 20 employment entries allowed.');
-                return;
-            }
-            
-            const expEntry = document.createElement('div');
-            expEntry.className = 'experience-entry';
-            expEntry.innerHTML = `
+    setupAddRemove({
+        containerSelector: '.experience-management',
+        addWrapperSelector: '.add-experience',
+        itemSelector: '.experience-entry',
+        removeSelector: '.exp-remove',
+        maxCount: 20,
+        countTextSelector: '#exp-count-text',
+        countLabel: 'employment entries',
+        createItemHtml: () => `
+            <div class="experience-entry">
                 <div class="exp-org">
                     <label>Organisation</label>
-                    <input type="text" class="exp-org-input">
+                    <input type="text" placeholder="Organisation name">
                 </div>
                 <div class="exp-position">
                     <label>Position</label>
-                    <input type="text" class="exp-position-input">
+                    <input type="text" placeholder="Role / Title">
                 </div>
                 <div class="exp-duration">
                     <label>Duration</label>
-                    <input type="text" class="exp-duration-input" placeholder="years">
+                    <input type="text" placeholder="e.g., 2 years">
                 </div>
-                <button class="exp-remove">×</button>
-            `;
-            
-            expContainer.insertBefore(expEntry, addExperienceBtn);
-            expCount++;
-        });
-    }
-    
-    // Experience entry removal
-    expContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('exp-remove')) {
-            e.target.parentElement.remove();
-        }
+                <button type="button" class="btn-remove exp-remove">Remove</button>
+            </div>
+        `
     });
-    
+
     // 7. Expertise Management
-    const addExpertiseBtn = document.querySelector('.add-expertise button');
-    const expertiseContainer = document.querySelector('.expertise-management');
-    
-    if (addExpertiseBtn && expertiseContainer) {
-        addExpertiseBtn.addEventListener('click', () => {
-            const expertiseTag = document.createElement('div');
-            expertiseTag.className = 'expertise-tag';
-            expertiseTag.innerHTML = `
-                <span>New Expertise Area</span>
-                <button class="expertise-remove">×</button>
-            `;
-            
-            expertiseContainer.insertBefore(expertiseTag, addExpertiseBtn);
-        });
-    }
-    
-    // Expertise removal
-    expertiseContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('expertise-remove')) {
-            e.target.parentElement.remove();
-        }
+    setupAddRemove({
+        containerSelector: '.expertise-management',
+        addWrapperSelector: '.add-expertise',
+        itemSelector: '.expertise-tag',
+        removeSelector: '.expertise-remove',
+        maxCount: 10,
+        countTextSelector: null,
+        countLabel: 'expertise areas',
+        createItemHtml: (idx) => `
+            <div class="expertise-tag">
+                <span>Expertise Area ${idx}</span>
+                <button type="button" class="btn-remove expertise-remove">×</button>
+            </div>
+        `
     });
-    
+
     // 8. Achievements Management
-    const addAchievementBtn = document.querySelector('.add-achievement button');
-    const achievementsContainer = document.querySelector('.achievements-management');
-    let achievementCount = 1;
-    const maxAchievements = 4; // Per PRD
-    
-    if (addAchievementBtn && achievementsContainer) {
-        addAchievementBtn.addEventListener('click', () => {
-            if (achievementCount >= maxAchievements) {
-                alert(`Maximum of ${maxAchievements} achievement areas allowed (as per PRD).`);
-                return;
-            }
-            
-            const achievementEntry = document.createElement('div');
-            achievementEntry.className = 'achievement-entry';
-            achievementEntry.innerHTML = `
-                <div>
-                    <label>Maintenance Cost Reduction</label> <!-- This would be dynamic based on type -->
-                    <textarea rows="2" class="achievement-desc" placeholder="Describe the achievement..."></textarea>
+    setupAddRemove({
+        containerSelector: '.achievements-management',
+        addWrapperSelector: '.add-achievement',
+        itemSelector: '.achievement-entry',
+        removeSelector: '.achievement-remove',
+        maxCount: 4,
+        countTextSelector: null,
+        countLabel: 'achievement areas',
+        createItemHtml: (idx) => `
+            <div class="achievement-entry">
+                <div class="achievement-type">
+                    <label>Achievement Area ${idx}</label>
                 </div>
-                <button class="achievement-remove">×</button>
-            `;
-            
-            achievementsContainer.insertBefore(achievementEntry, addAchievementBtn);
-            achievementCount++;
-        });
-    }
-    
-    // Achievement entry removal
-    achievementsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('achievement-remove')) {
-            e.target.parentElement.remove();
-            achievementCount--;
-        }
+                <div class="achievement-desc">
+                    <textarea rows="2" placeholder="Describe the achievement..."></textarea>
+                </div>
+                <button type="button" class="btn-remove achievement-remove">Remove</button>
+            </div>
+        `
     });
-    
+
     // 9. Companies Management
-    const addCompanyBtn = document.querySelector('.add-company button');
-    const companiesContainer = document.querySelector('.companies-management');
-    let companyCount = 2; // Start at 2 since PRD has 2 companies
-    const maxCompanies = 2; // Per PRD
-    
-    if (addCompanyBtn && companiesContainer) {
-        addCompanyBtn.addEventListener('click', () => {
-            if (companyCount >= maxCompanies) {
-                alert(`Maximum of ${maxCompanies} companies allowed (as per PRD). Currently: ${companyCount} of ${maxCompanies}.`);
-                return;
-            }
-            
-            const companyEntry = document.createElement('div');
-            companyEntry.className = 'company-entry';
-            companyEntry.innerHTML = `
+    setupAddRemove({
+        containerSelector: '.companies-management',
+        addWrapperSelector: '.add-company',
+        itemSelector: '.company-entry',
+        removeSelector: '.company-remove',
+        maxCount: 2,
+        countTextSelector: '#companies-count-text',
+        countLabel: 'companies',
+        createItemHtml: () => `
+            <div class="company-entry">
                 <div class="company-logo-preview">
                     <div class="logo-icon">NEW</div>
                 </div>
                 <div class="company-info">
                     <h3>New Company</h3>
-                    <p><strong>Founder & CEO</strong></p>
+                    <p><strong>Founder &amp; CEO</strong></p>
                     <p>Business description...</p>
                 </div>
-                <button class="company-remove">×</button>
-            `;
-            
-            companiesContainer.insertBefore(companyEntry, addCompanyBtn);
-            companyCount++;
-        });
-    }
-    
-    // Company entry removal
-    companiesContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('company-remove')) {
-            e.target.parentElement.remove();
-            companyCount--;
-        }
+                <button type="button" class="btn-remove company-remove">Remove</button>
+            </div>
+        `
     });
-    
+
     // 10. Projects Management
-    const addProjectBtn = document.querySelector('.add-project button');
-    const projectsContainer = document.querySelector('.projects-management');
-    let projectCount = 0;
-    const maxProjects = 50;
-    
-    if (addProjectBtn && projectsContainer) {
-        addProjectBtn.addEventListener('click', () => {
-            if (projectCount >= maxProjects) {
-                alert('Maximum of 50 projects allowed.');
-                return;
-            }
-            
-            const projectEntry = document.createElement('div');
-            projectEntry.className = 'project-entry';
-            projectEntry.innerHTML = `
+    setupAddRemove({
+        containerSelector: '.projects-management',
+        addWrapperSelector: '.add-project',
+        itemSelector: '.project-entry',
+        removeSelector: '.project-remove',
+        maxCount: 50,
+        countTextSelector: null,
+        countLabel: 'projects',
+        createItemHtml: (idx) => `
+            <div class="project-entry">
                 <div class="project-image-upload">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #1a237e;">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/>
                         <circle cx="15.5" cy="15.5" r="1.5"/>
                     </svg>
-                    <span>Project Image</span>
+                    <span>Project ${idx}</span>
                 </div>
                 <div class="project-info">
-                    <h3>Project Title</h3>
-                    <p>Description...</p>
+                    <h3>New Project ${idx}</h3>
+                    <p>Project description...</p>
                     <p class="project-business">Business: <span>ATX TECHNOLOGIES</span></p>
                 </div>
-                <button class="project-remove">×</button>
-            `;
-            
-            projectsContainer.insertBefore(projectEntry, addProjectBtn);
-            projectCount++;
-        });
-    }
-    
-    // Project entry removal
-    projectsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('project-remove')) {
-            e.target.parentElement.remove();
-            projectCount--;
-        }
+                <button type="button" class="btn-remove project-remove">Remove</button>
+            </div>
+        `
     });
-    
+
     // 11. Publications Management
-    const addPublicationBtn = document.querySelector('.add-publication button');
-    const publicationsContainer = document.querySelector('.publications-management');
-    let publicationCount = 0;
-    const maxPublications = 30;
-    
-    if (addPublicationBtn && publicationsContainer) {
-        addPublicationBtn.addEventListener('click', () => {
-            if (publicationCount >= maxPublications) {
-                alert('Maximum of 30 publications allowed.');
-                return;
-            }
-            
-            const publicationEntry = document.createElement('div');
-            publicationEntry.className = 'publication-entry';
-            publicationEntry.innerHTML = `
-                <div class="pub-type-tag">Article</div>
-                <div pub-title>
-                    <h3>Publication Title</h3>
+    setupAddRemove({
+        containerSelector: '.publications-management',
+        addWrapperSelector: '.add-publication',
+        itemSelector: '.publication-entry',
+        removeSelector: '.pub-remove',
+        maxCount: 30,
+        countTextSelector: null,
+        countLabel: 'publications',
+        createItemHtml: (idx) => `
+            <div class="publication-entry">
+                <div class="pub-type-tag"><span>Article</span></div>
+                <div class="pub-title">
+                    <h3>Publication Title ${idx}</h3>
                 </div>
-                <div pub-meta>
-                    <p>Date: <span>Pending</span></p>
+                <div class="pub-meta">
+                    <p>Status: <span>Pending approval</span></p>
                     <p>Category: <span>Professional</span></p>
                 </div>
-                <button class="pub-remove">Remove</button>
-            `;
-            
-            publicationsContainer.insertBefore(publicationEntry, addPublicationBtn);
-            publicationCount++;
-        });
-    }
-    
-    // Publication entry removal
-    publicationsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('pub-remove')) {
-            e.target.parentElement.remove();
-            publicationCount--;
-        }
+                <button type="button" class="btn-publication-remove pub-remove">Remove</button>
+            </div>
+        `
     });
-    
-    // 12. Contact Enquiries Management (simulate loading)
-    const enquiryStats = document.querySelectorAll('.enquiry-stat .stat-small div');
-    if (enquiryStats.length > 0) {
-        // Simulate statistics
-        const totalEnquiries = Math.floor(Math.random() * 500) + 100;
-        const todayEnquiries = Math.floor(Math.random() * 50) + 10;
-        
-        enquiryStats[0].textContent = totalEnquiries.toLocaleString();
-        enquiryStats[1].textContent = todayEnquiries;
+
+    // 12. Load Contact Enquiries from localStorage
+    const enquiriesList = document.getElementById('enquiries-list');
+    const enquiriesTotalEl = document.getElementById('enquiries-total');
+    const enquiriesTodayEl = document.getElementById('enquiries-today');
+    const enquiryCountEl = document.getElementById('enquiry-count');
+    const contactSubmissionsEl = document.getElementById('contact-submissions');
+
+    let savedEnquiries = [];
+    try {
+        savedEnquiries = JSON.parse(localStorage.getItem('portfolio_enquiries') || '[]');
+    } catch {
+        savedEnquiries = [];
     }
-    
-    // 13. Statistics Management
-    const visitorCount = document.getElementById('visitor-count');
+
+    if (enquiriesList && savedEnquiries.length > 0) {
+        enquiriesList.innerHTML = savedEnquiries.map(item => `
+            <div class="education-entry" style="display:block; padding:1rem 0;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem;">
+                    <strong>${String(item.name).replace(/[<>&]/g, '')}</strong>
+                    <span style="font-size:0.75rem; color:#5d6d7e;">${String(item.date || '').replace(/[<>&]/g, '')}</span>
+                </div>
+                <div style="font-size:0.8rem; color:#1a237e; margin-bottom:0.25rem;">${String(item.email).replace(/[<>&]/g, '')} • ${String(item.enquiryType || 'General').replace(/[<>&]/g, '')}</div>
+                <p style="font-size:0.875rem; color:#2d3a4b;">${String(item.message || '').replace(/[<>&]/g, '')}</p>
+            </div>
+        `).join('');
+    }
+
+    const totalEnq = savedEnquiries.length;
+    if (enquiriesTotalEl) enquiriesTotalEl.textContent = String(totalEnq);
+    if (enquiriesTodayEl) enquiriesTodayEl.textContent = String(totalEnq);
+    if (enquiryCountEl) enquiryCountEl.textContent = String(totalEnq);
+    if (contactSubmissionsEl) contactSubmissionsEl.textContent = String(totalEnq);
+
+    // 13. Dashboard Summary Metrics & Fallback Canvas Charts
+    const visitorCountEl = document.getElementById('visitor-count');
     const projectCountEl = document.getElementById('project-count');
-    const enquiryCount = document.getElementById('enquiry-count');
-    const cvDownloads = document.getElementById('cv-downloads');
-    
-    // Simulate statistics
-    if (visitorCount) visitorCount.textContent = (Math.floor(Math.random() * 10000) + 5000).toLocaleString();
-    if (projectCountEl) projectCountEl.textContent = Math.floor(Math.random() * 200) + 50;
-    if (enquiryCount) enquiryCount.textContent = Math.floor(Math.random() * 300) + 50;
-    if (cvDownloads) cvDownloads.textContent = Math.floor(Math.random() * 100) + 20;
-    
-    // Chart initialization (simple placeholder)
-    const ctx = document.getElementById('visitors-chart');
-    if (ctx && typeof Chart !== 'undefined') {
-        const visitorsChart = new Chart(ctx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
-                datasets: [{
-                    label: 'Visitors',
-                    data: [Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50, Math.floor(Math.random() * 100) + 50],
-                    borderColor: '#1a237e',
-                    backgroundColor: 'rgba(26, 35, 126, 0.1)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
+    const cvDownloadsEl = document.getElementById('cv-downloads');
+
+    if (visitorCountEl) visitorCountEl.textContent = '1,240';
+    if (projectCountEl) projectCountEl.textContent = String(document.querySelectorAll('.project-entry').length + 2);
+    if (cvDownloadsEl) cvDownloadsEl.textContent = '86';
+
+    const drawSimpleLineChart = (canvasId, values, labels) => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const pad = 30;
+        const maxVal = Math.max(...values, 1);
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#e0e4ec';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad);
+        ctx.lineTo(pad, h - pad);
+        ctx.lineTo(w - pad, h - pad);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#1a237e';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        values.forEach((v, i) => {
+            const x = pad + (i * (w - pad * 2)) / (values.length - 1);
+            const y = h - pad - (v / maxVal) * (h - pad * 2);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = '#5d6d7e';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        values.forEach((v, i) => {
+            const x = pad + (i * (w - pad * 2)) / (values.length - 1);
+            const y = h - pad - (v / maxVal) * (h - pad * 2);
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#5d6d7e';
+            ctx.fillText(labels[i], x, h - 10);
+        });
+    };
+
+    const drawSimpleBarChart = (canvasId, items) => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const pad = 32;
+        const barWidth = (w - pad * 2) / items.length - 16;
+        const maxVal = Math.max(...items.map(i => i.value), 1);
+
+        ctx.clearRect(0, 0, w, h);
+        items.forEach((item, idx) => {
+            const x = pad + idx * ((w - pad * 2) / items.length) + 8;
+            const barH = (item.value / maxVal) * (h - pad * 2);
+            const y = h - pad - barH;
+
+            ctx.fillStyle = idx % 2 === 0 ? '#1a237e' : '#ffd700';
+            ctx.fillRect(x, y, barWidth, barH);
+
+            ctx.fillStyle = '#2d3a4b';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(item.label, x + barWidth / 2, h - 10);
+        });
+    };
+
+    drawSimpleLineChart('visitors-chart', [42, 58, 51, 76, 68, 92, 84], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    drawSimpleBarChart('traffic-chart', [
+        { label: 'Direct', value: 48 },
+        { label: 'LinkedIn', value: 32 },
+        { label: 'Search', value: 24 },
+        { label: 'Referral', value: 16 }
+    ]);
+
+    // Stat period filter buttons
+    document.querySelectorAll('.stat-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.stat-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const period = btn.getAttribute('data-period');
+            if (period === '7') {
+                document.getElementById('total-visitors').textContent = '320';
+                document.getElementById('unique-visitors').textContent = '245';
+                document.getElementById('page-views').textContent = '890';
+            } else if (period === '30') {
+                document.getElementById('total-visitors').textContent = '780';
+                document.getElementById('unique-visitors').textContent = '560';
+                document.getElementById('page-views').textContent = '2,140';
+            } else {
+                document.getElementById('total-visitors').textContent = '1,240';
+                document.getElementById('unique-visitors').textContent = '890';
+                document.getElementById('page-views').textContent = '3,420';
             }
         });
-    }
-    
+    });
+
     // 14. Settings Management
-    const settingsForm = document.querySelector('.settings-form');
-    const websiteTitle = document.getElementById('website-title');
-    const colorScheme = document.getElementById('color-scheme');
-    const metaDescription = document.getElementById('meta-description');
-    const cvDownloadEnabled = document.getElementById('cv-download-enabled');
-    const commentsEnabled = document.getElementById('comments-enabled');
-    const googleAnalytics = document.getElementById('google-analytics');
-    const settingsSaved = document.querySelector('.settings-saved');
-    
+    const settingsForm = document.getElementById('settings-form');
     if (settingsForm) {
         settingsForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            
-            // Collect settings
-            const settings = {
-                websiteTitle: websiteTitle.value,
-                colorScheme: colorScheme.value,
-                metaDescription: metaDescription.value,
-                cvDownloadEnabled: cvDownloadEnabled.checked,
-                commentsEnabled: commentsEnabled.checked,
-                googleAnalytics: googleAnalytics.value
-            };
-            
-            // Show saved state
-            if (settingsSaved) {
-                settingsSaved.style.display = 'block';
-                setTimeout(() => {
-                    settingsSaved.style.display = 'none';
-                }, 3000);
-            }
-            
-            alert('Settings saved successfully!');
+            showToast('Admin settings saved.');
         });
     }
-    
-    // 15. Form validation for key sections
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', (e) => {
-            let isValid = true;
-            const inputs = form.querySelectorAll('input[required], textarea[required], select[required]');
-            
-            inputs.forEach(input => {
-                if (!input.value.trim()) {
-                    isValid = false;
-                    input.style.borderColor = 'var(--error-red)';
-                } else {
-                    input.style.borderColor = 'var(--border-color)';
-                }
-            });
-            
-            if (!isValid) {
-                e.preventDefault();
-                alert('Please fill in all required fields.');
-            }
-        });
-    });
-    
-    // 16. Staggered reveal animations on scroll
-    const revealElements = document.querySelectorAll('.reveal');
-    
-    const revealObserver = new IntersectionObserver((entries) => {
-        entries.forEach((entry, index) => {
-            if (entry.isIntersecting) {
-                setTimeout(() => {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }, index * 100);
-                revealObserver.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.1 });
-    
-    revealElements.forEach((el, i) => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(20px)';
-        el.style.transition = 'opacity 0.5s, transform 0.5s';
-        revealObserver.observe(el);
-    });
-    
-    // 17. Initialize tooltips
-    const tooltips = document.querySelectorAll('[title]');
-    tooltips.forEach(element => {
-        element.addEventListener('mouseenter', (e) => {
-            // Create tooltip element
-            const tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            tooltip.textContent = element.getAttribute('title');
-            tooltip.style.cssText = `
-                position: absolute;
-                background: var(--navy);
-                color: var(--white);
-                padding: 0.5rem 0.75rem;
-                border-radius: 4px;
-                font-size: 0.75rem;
-                z-index: 1000;
-                bottom: calc(100% + 8px);
-                left: 50%;
-                transform: translateX(-50%);
-                white-space: nowrap;
-            `;
-            document.body.appendChild(tooltip);
-            
-            // Position tooltip
-            const rect = element.getBoundingClientRect();
-            tooltip.style.left = `${rect.left + rect.width / 2}px`;
-            
-            // Remove on hover leave
-            element.addEventListener('mouseleave', () => {
-                tooltip.remove();
-            });
-        });
-    });
 });
